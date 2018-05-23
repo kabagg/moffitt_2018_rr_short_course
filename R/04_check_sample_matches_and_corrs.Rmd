@@ -1,0 +1,382 @@
+---
+title: "Check Sample Matches and Correlations"
+author: "Keith Baggerly"
+date: "`r Sys.Date()`"
+output: github_document
+---
+
+# Overview
+
+Given what we've seen of the Potti et al and NCI60 datasets, 
+we want to see whether we can nail down the precise mappings
+used. 
+
+We load the data matrices for Potti et al, the NCI60, and the
+docetaxel patient cohort posted to GEO. We check for exact
+matches between expression values in the Potti et al and NCI60
+datasets, and between the Potti et al and GEO datasets if
+the former fails. We also examine the pairwise sample 
+correlations between columns to see whether that clarifies
+any of the structure present.
+
+Precise matching on data values lets us match all of the 
+Potti et al columns for 5 of the 7 drugs to columns in the 
+NCI60 dataset; we know which cell lines are being used 
+in each of the contrast groups. We find no matches for 
+columns associated with Docetaxel (Doce) and Cytoxan (Cytox); correlation
+plots show the contents of these columns are wholly uncorrelated
+with those in the rest of the data matrix. Examining minimums
+shows the minimum values in these columns are (a) all the same, 
+and (b) the same as the minimum values we saw in earlier
+examination of the GEO data. Again looking for exact matches
+shows the Doce and Cytox columns match columns
+from the GEO datasets after allowing for an offset of 67 rows
+to exclude the Affymetrix control probes reported in GEO. 
+These matches are exact for the first 12535 of 12558 probesets
+reported; the last 23 use a slightly different order. Importantly, 
+the values in the Potti table match the GEO values 
+_in the order they are presented at GEO_, but these probeset ids
+do not match those used in the Potti et al table, effectively
+producing a random scrambling of the data values. 
+
+
+# Librares and Data
+
+## Libraries
+
+```{r load_libs}
+
+library(here)
+library(lattice)
+
+```
+
+## Data
+
+```{r load_data}
+
+load(here("results", "potti_data.RData"))
+load(here("results", "nci60_data.RData"))
+load(here("results", "geo_data.RData"))
+
+```
+
+# Matching the Cell Lines Used
+
+Our first question is whether we can match the data values supplied
+by Potti et al to the NCI60 data, and thus infer the identities of 
+the cell lines used to characterize response for each drug. Based 
+on our earlier description of the raw data tables, we think checking
+for matches of the first one or two probeset values might suffice. 
+
+```{r check_potti_for_nci60_matches}
+
+potti_nci60_names <- rep(NA, ncol(potti))
+for(i1 in 1:ncol(potti)){
+  temp <- which(nci60["36460_at", ] == potti["36460_at", i1])
+  if(length(temp) == 1){
+    potti_nci60_names[i1] <- colnames(nci60)[temp]
+  }
+}
+
+drug_names <- unique(potti_info$drug_name)
+contrast_levels <- c(0, 1)
+for(i1 in 1:length(drug_names)){
+  for(i2 in 1:length(contrast_levels)){
+    cat("drug: ", drug_names[i1], " level ", contrast_levels[i2],
+        "\n", 
+        potti_nci60_names[ 
+          (potti_info$drug_name == drug_names[i1]) & 
+          (potti_info$contrast_group == contrast_levels[i2])], "\n",
+        fill = TRUE)
+  }
+}
+
+```
+
+We get perfect matches for all cell lines used for 5 of the 7 drugs. 
+We get no matches at all for two of drugs: Doce (Docetaxel) and
+Cytox (Cytoxan). Failing for all cell lines for these drugs suggests
+something more involved might be going on there. 
+
+All of the matches we do see are for the "A" set of cell line replicates,
+suggesting the way they dealt with having triplicate measurements of 
+each line was to simply take the first in each instance. 
+
+# Check Sample Correlations in the Potti et al Data
+
+```{r get_potti_cors}
+
+potti_cors <- cor(potti)
+
+```
+
+Let's try plotting the pairwise correlations for all columns
+in the Potti et al dataset.
+
+```{r plot_raw_potti_cors}
+
+levelplot(potti_cors,
+          xlab = "", ylab = "",
+          scales = list(alternating=0, tck=0),
+          main = "Pairwise Sample Correlations\nin Potti et al Data")
+
+```
+
+The columns for the two drugs (Docetaxel and Cytoxan) stand out clearly. 
+They're effectively uncorrelated with the columns of the NCI60 data 
+matrix. 
+
+We can also look for sample reuse by checking where the pairwise correlations
+are quite high (say above 0.99).
+
+```{r plot_potti_high_cors}
+
+levelplot(potti_cors > 0.99,
+          xlab = "", ylab = "",
+          scales = list(alternating=0, tck=0),
+          main = "Pairwise Sample Correlations > 0.99\nin Potti et al Data")
+
+```
+
+As it happens, there are a few off-diagonal contiguous stretches of
+"hits", and these are coming from the Docetaxel and Cytoxan columns.
+We can see this by looking at the values for the first probeset.
+
+```{r check_doce_cytox_asymmetry}
+
+## Doce 0, Cytox 1
+
+potti["36460_at", (potti_info$drug_name == "Doce") &
+        (potti_info$contrast_group == 0)]
+potti["36460_at", (potti_info$drug_name == "Cytox") &
+        (potti_info$contrast_group == 1)]
+
+## Doce 1, Cytox 0
+
+potti["36460_at", (potti_info$drug_name == "Doce") &
+        (potti_info$contrast_group == 0)]
+potti["36460_at", (potti_info$drug_name == "Cytox") &
+        (potti_info$contrast_group == 1)]
+
+```
+
+The Docetaxel and Cytoxan columns are identical but for the 
+reversal of the contrast group labels. This makes little
+sense biologically. 
+
+# Check Other Summaries for Potti et al Data
+
+Given the discrepancy, we also checked whether other summary
+statistics applied to the Potti et al data might clarify
+the situation. We looked at values typically returned 
+by `summary` (most not shown), of which the minimum was
+most enlightening. 
+
+```{r plot_potti_minimums}
+
+plot(apply(potti, 2, min),
+     ylab = "Minimum Expression Value",
+     xlab = "Raw Column Index",
+     main = "Minimum Expression for Potti et al Data")
+
+drug_boundaries <- 
+  which(potti_info$drug_name[1:(ncol(potti) - 1)] != 
+          potti_info$drug_name[2:ncol(potti)])
+abline(v = drug_boundaries + 0.5)
+
+drug_centers <- 
+  (c(1, drug_boundaries+1) + c(drug_boundaries, ncol(potti))) / 2
+drug_center_names <- 
+  potti_info$drug_name[floor(drug_centers)]
+mtext(drug_center_names, side = 3, 
+      at = drug_centers)
+
+```
+
+The minimums for the Doce and Cytox samples all look to be about 
+the same. Let's look at the actual values. 
+
+```{r check_min_values}
+
+apply(potti[, potti_info$drug_name == "Doce"], 2, min)
+apply(potti[, potti_info$drug_name == "Cytox"], 2, min)
+
+```
+
+All of the minimum values are 5.89822. We've seen this value before. 
+This is the minimum value for all of the samples in the datasets
+from GEO, which are not cell lines, but rather patient samples.
+Since this was one of the cohorts used to test their predictor 
+for docetaxel, this may be the test data as opposed to the training
+data. It's not at all clear why these should be present for cytoxan, 
+nor is it clear why the correlations beteen these samples and the
+cell lines. would all be near zero. 
+
+# Matching Potti to GEO
+
+We can explore the hypothesis that some of the Potti data 
+might be coming from the GEO data by looking for matching
+values for a few entries. We'll start with the first 
+probeset in the Potti data, 36460\_at. 
+
+```{r check_first_match}
+
+potti["36460_at", "Doce_0_023"]
+
+which(geo == potti["36460_at", "Doce_0_023"], arr.ind = TRUE)
+
+which(geo == potti["36460_at", "Doce_0_024"], arr.ind = TRUE)
+
+which(geo == potti["36460_at", "Doce_0_025"], arr.ind = TRUE)
+
+```
+
+It appears row 1 of the Potti et al columns is mapping to row 68
+of the GEO data. While row 68 of the GEO data is the first
+non-control probe row, the probeset id is _not_ the same; the
+probeset ordering is different between the NCI60 data and the
+GEO data. 
+
+We can check this further by looking at the next few rows
+for some of the samples that match.
+
+```{r check_first_few_rows}
+
+colnames(geo)[14]
+potti[1:5, "Doce_0_023"]
+geo[67 + c(1:5), "GSM4903"]
+
+```
+
+The values match exactly, but since the probesets are
+in a different order, the values have essentially been randomly
+scrambled with respect to each other. Random scrambling would 
+explain why we correlations near zero. We can check how extensive
+the offset is for this sample (for which there are 12558 data rows
+in the Potti et al table):
+
+```{r check_match_extent}
+
+sum(potti[, "Doce_0_023"] == geo[67 + c(1:nrow(potti)), "GSM4903"])
+which(potti[, "Doce_0_023"] != geo[67 + c(1:nrow(potti)), "GSM4903"])
+
+all( sort(potti[12534:nrow(potti), "Doce_0_023"]) == 
+       sort(geo[67 + c(12534:nrow(potti)), "GSM4903"]) )
+
+```
+
+We match all but the last 23 of the 12558 entries using the offset, 
+and the remaining entries involve the same values, just scrambled
+in a different way. This is where this column in the Potti data
+comes from. 
+
+Now, there are just 20 columns in the Potti data labeled as belonging
+to Docetaxel (and Cytoxan), but there are 24 columns of data in the 
+GEO dataset. 
+
+We're simply going to try brute force matching here. 
+
+```{r apply_brute_force}
+
+n_doce <- 20
+n_geo <- 24
+
+match_count_matrix <- 
+  matrix(0, nrow = n_doce, ncol = n_geo)
+rownames(match_count_matrix) <- 
+  colnames(potti)[potti_info$drug_name == "Doce"]
+colnames(match_count_matrix) <- 
+  colnames(geo)
+
+for(i1 in 1:n_doce){
+  for(i2 in 1:n_geo){
+    match_count_matrix[i1, i2] <- 
+      sum(potti[, rownames(match_count_matrix)[i1]] ==
+            geo[67 + c(1:nrow(potti)), colnames(match_count_matrix)[i2]])
+  }
+}
+
+table(match_count_matrix[match_count_matrix > 1000])
+
+```
+
+We have matches of the same extent for all 20 of the Doce columns.  
+Let's eyeball roughly where these are. 
+
+```{r plot_potti_doce_geo_matches}
+
+levelplot(match_count_matrix,
+          main = "N Matches of Potti Doce Columns\nand GEO Data Columns")
+
+```
+
+These are essentially in linear order, so the sensitive and resistant
+patient groups map pretty well to the 0/1 contrast group labels. 
+
+Let's collect all of the name matches into a vector. We can 
+add these for Cytoxan too, given that the Doce and Cytox
+values are the same except for the contrast group label. 
+
+```{r match_potti_to_geo}
+
+potti_geo_matches <- rep(NA, ncol(potti))
+names(potti_geo_matches) <- colnames(potti)
+for(i1 in 1:nrow(match_count_matrix)){
+  potti_geo_matches[rownames(match_count_matrix)[i1]] <-
+    colnames(match_count_matrix)[which(match_count_matrix[i1, ] > 1000)]
+}
+
+potti_geo_matches[(potti_info$drug_name == "Cytox") &
+                    (potti_info$contrast_group == 0)] <-
+  potti_geo_matches[(potti_info$drug_name == "Doce") &
+                      (potti_info$contrast_group == 1)]
+
+potti_geo_matches[(potti_info$drug_name == "Cytox") &
+                    (potti_info$contrast_group == 1)] <-
+  potti_geo_matches[(potti_info$drug_name == "Doce") &
+                      (potti_info$contrast_group == 0)]
+
+```
+
+Similarly, let's grab a vector defining the sample status
+for the GEO samples used.
+
+```{r record_geo_status}
+
+geo_status <- rep(NA, ncol(potti))
+geo_status[!is.na(potti_geo_matches)] <- 
+  geo_sample_info[potti_geo_matches[!is.na(potti_geo_matches)],
+                  "sample_status"]
+
+```
+
+# Combine all Match Info Into a Data Frame
+
+We now know where all of the columns in the original 
+data matrix came from. Here, we combine this into a 
+single data frame for later use. 
+
+```{r collate_match_info}
+
+potti_matches <- potti_info
+potti_matches$nci60_match <- potti_nci60_names
+potti_matches$geo_match <- potti_geo_matches
+potti_matches$geo_status <- geo_status
+
+```
+
+# Save the Results
+
+Now we save the results for later use, both as an 
+RData object and as a csv file. 
+
+```{r save_matches}
+
+save(potti_matches,
+     file = here("results", "potti_matches.RData"))
+write.csv(potti_matches,
+          file = here("results", "potti_matches.csv"))
+
+```
+

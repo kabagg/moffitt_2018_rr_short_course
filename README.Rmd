@@ -1,0 +1,92 @@
+---
+title: "README"
+author: "Keith Baggerly"
+date: "`r Sys.Date()`"
+output: 
+  github_document:
+    toc: TRUE
+---
+
+# Overview
+
+We want to illustrate assembly of a reproducible analysis
+using a dataset we care about. Our workflow closely
+follows that of Jenny Bryan's 
+[packages-report-EXAMPLE](https://github.com/jennybc/packages-report-EXAMPLE)
+on GitHub.
+
+Several years ago, [Potti et al](https://www.nature.com/articles/nm1491) 
+claimed to have found a way to use microarray profiles of a specific 
+panel of cell lines (the NCI60) to predict cancer patient response 
+to chemotherapeutics from a similar profile of the patient's tumor. 
+Using different subsets of cell lines, they made predictions for several 
+different drugs. We wanted to apply their method, so we asked
+them to send us lists of which cell lines were used to make
+predictions for which drugs. The method doesn't work; we 
+describe our full analyses 
+[here](https://projecteuclid.org/euclid.aoas/1267453942).
+
+The first dataset we received from Potti et al didn't have the
+cell lines labeled. We want to see if we can identify where the 
+numbers came from and see if there were any oddities that should
+have raised red flags early on. 
+
+# Brief Results
+
+* [01_gather_data](results/01_gather_data.md) downloads the 
+  raw datasets used from the web.
+* [02_describing_raw_data](results/02_describing_raw_data.md)
+  both summarizes background information about the datasets in 
+  question and describes what we can see by looking at the 
+  structure of the data with minimal processing.
+* [03_preprocessing_data_base_r_version](results/03_preprocessing_data_base_r_version.md) reorganizes the datasets into matrices of expression values
+  and data frames of annotation using consistent names. 
+* [04_check_sample_matches_and_corrs](results/04_check_sample_matches_and_corrs.md)
+  establishes the mappings desired.
+* [05_report_matches_to_potti_columns](results/05_report_matches_to_potti_columns.md) summarizes the results of our analyses in 
+  more formal "report" format.
+
+# Running the Analysis
+
+Roughly, our analyses involve running the R and Rmd files
+in [R](R) in the order they appear. 
+
+Run [R/95_make_clean.R](R/95_make_clean.R) to clear out any
+downstream products.
+
+Run [R/99_make_all.R](R/99_make_all.R) to re-run the analysis 
+from beginning to end, including generating this README.
+
+Raw data from the web is stored in [data][data].
+
+Reports and interim results are stored in [results][results].
+
+## Required Libraries
+
+These analyses were performed in RStudio 1.1.447 using 
+`r version[["version.string"]]`, 
+and use (in alphabetical order):
+
+* downloader `r packageVersion("downloader")`
+* GEOquery   `r packageVersion("GEOquery")`
+* here       `r packageVersion("here")`
+* lattice    `r packageVersion("lattice")`
+* magrittr   `r packageVersion("magrittr")`
+* readr      `r packageVersion("readr")`
+* rmarkdown  `r packageVersion("rmarkdown")`
+* tidyr      `r packageVersion("tidyr")`
+
+All of the above except `GEOquery` are available from 
+[CRAN](https://cran.r-project.org). 
+
+`GEOquery` is available from [BioConductor](https://www.bioconductor.org),
+and can be installed from the R command line with
+```{r install_geoquery, eval=FALSE}
+
+## try http:// if https:// URLs are not supported
+source("https://bioconductor.org/biocLite.R")
+biocLite("GEOquery")
+
+```
+
+
