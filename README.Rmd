@@ -57,9 +57,9 @@ downstream products.
 Run [R/99_make_all.R](R/99_make_all.R) to re-run the analysis 
 from beginning to end, including generating this README.
 
-Raw data from the web is stored in [data][data].
+Raw data from the web is stored in [data](data).
 
-Reports and interim results are stored in [results][results].
+Reports and interim results are stored in [results](results).
 
 ## Required Libraries
 

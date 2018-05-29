@@ -1,7 +1,7 @@
 README
 ================
 Keith Baggerly
-2018-05-23
+2018-05-29
 
 -   [Overview](#overview)
 -   [Brief Results](#brief-results)
@@ -35,9 +35,9 @@ Run [R/95\_make\_clean.R](R/95_make_clean.R) to clear out any downstream product
 
 Run [R/99\_make\_all.R](R/99_make_all.R) to re-run the analysis from beginning to end, including generating this README.
 
-Raw data from the web is stored in \[data\]\[data\].
+Raw data from the web is stored in [data](data).
 
-Reports and interim results are stored in \[results\]\[results\].
+Reports and interim results are stored in [results](results).
 
 Required Libraries
 ------------------
